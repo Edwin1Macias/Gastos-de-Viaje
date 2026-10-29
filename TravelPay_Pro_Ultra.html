@@ -103,7 +103,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tu Nombre (Administrador)</label>
-                    <input type="text" id="creatorNameInput" placeholder="Ej. Edwin" 
+                    <input type="text" id="creatorNameInput" placeholder="Ej. Edwin, Juan..." 
                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium">
                 </div>
             </div>
@@ -182,7 +182,11 @@
                             <i data-lucide="edit-3" class="w-3.5 h-3.5 opacity-70"></i>
                         </h2>
                     </div>
-                    <p class="text-[11px] text-slate-300">Sala privada • Solo quienes tienen este enlace ven los datos.</p>
+                    <div class="flex items-center gap-2 text-[11px] text-slate-300">
+                        <span>Creador: <strong id="tripAdminBadge" class="text-emerald-400">Admin</strong></span>
+                        <span>•</span>
+                        <span>Tú: <strong id="tripMyNameBadge" class="text-amber-300">Invitado</strong></span>
+                    </div>
                 </div>
             </div>
 
@@ -247,13 +251,16 @@
 
             <!-- PANEL IZQUIERDO: INTEGRANTES -->
             <div class="md:col-span-5 glass-card rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
-                <div class="flex items-center gap-2 text-slate-900 font-bold text-base">
-                    <i data-lucide="users" class="w-5 h-5 text-brand-600"></i>
-                    <span>1. Amigos en el Viaje</span>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2 text-slate-900 font-bold text-base">
+                        <i data-lucide="users" class="w-5 h-5 text-brand-600"></i>
+                        <span>1. Amigos en el Viaje</span>
+                    </div>
+                    <span class="text-[11px] text-slate-400 font-medium">👑 Admin protegido</span>
                 </div>
 
                 <div class="flex gap-2">
-                    <input type="text" id="friendName" placeholder="Nombre (ej. Sofía)" 
+                    <input type="text" id="friendName" placeholder="Añadir otro amigo..." 
                            class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium">
                     <button onclick="addFriend()" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-sm transition">
                         + Añadir
@@ -432,6 +439,29 @@
 
 </div>
 
+<!-- MODAL BIENVENIDA INVITADO: ¿CÓMO TE LLAMAS? -->
+<div id="joinModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="glass-card max-w-sm w-full rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-200 text-center space-y-4">
+        <div class="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-brand-600 to-emerald-500 text-white flex items-center justify-center shadow-lg shadow-brand-500/20 text-2xl">
+            ✈️
+        </div>
+        <div>
+            <h3 class="text-xl font-extrabold text-slate-900 tracking-tight">¡Te invitaron a este viaje!</h3>
+            <p id="joinModalTripName" class="text-sm font-bold text-brand-600 mt-1">Cargando...</p>
+            <p class="text-xs text-slate-500 mt-1">Ingresa tu nombre para comenzar a compartir gastos con tus amigos.</p>
+        </div>
+        <div class="space-y-3 pt-2">
+            <div>
+                <input type="text" id="joinUserNameInput" placeholder="¿Cómo te llamas? (ej. Sofía, Carlos)" 
+                       class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-bold text-center">
+            </div>
+            <button onclick="confirmJoinUser()" class="w-full py-3 bg-gradient-to-r from-brand-600 to-emerald-600 hover:from-brand-700 hover:to-emerald-700 text-white font-extrabold rounded-xl shadow-md text-sm transition">
+                ¡Unirme al Viaje! 🚀
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- TOAST NOTIFICACIÓN -->
 <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xl transition-opacity duration-300 opacity-0 pointer-events-none flex items-center gap-2 z-50">
     <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
@@ -460,6 +490,8 @@
 
     let tripRef = null;
     let currentTripName = "Mi Viaje";
+    let currentTripAdmin = "";
+    let currentMyUser = "";
     let friends = [];
     let expenses = [];
     let categoryChartInstance = null;
@@ -507,10 +539,10 @@
     // ACCIONES DESDE EL HOME
     function handleCreateTripFromHome() {
         const nameInput = document.getElementById('newTripNameInput').value.trim();
-        const creatorInput = document.getElementById('creatorNameInput').value.trim();
+        const creatorInput = document.getElementById('creatorNameInput').value.trim() || "Edwin";
 
         if (!nameInput) {
-            alert("Por favor escribe el nombre de tu viaje (ej. Mazamitla 2026).");
+            alert("Por favor escribe el nombre de tu viaje (ej. Mazamitla 2026, Cena).");
             return;
         }
 
@@ -518,12 +550,14 @@
         const randomCode = Math.floor(1000 + Math.random() * 9000);
         const newId = `${safeSlug}-${randomCode}`;
 
-        const initialFriends = creatorInput ? [creatorInput] : ["Edwin"];
+        // Guardar mi identidad en este navegador como Creador/Admin
+        localStorage.setItem('tp_user_' + newId, creatorInput);
 
-        // Guardar nuevo viaje inicial en Firebase
+        // Guardar nuevo viaje inicial en Firebase con Admin
         db.ref('trips/' + newId).set({
             name: nameInput,
-            friends: initialFriends,
+            admin: creatorInput,
+            friends: [creatorInput],
             expenses: [],
             updatedAt: Date.now()
         }).then(() => {
@@ -603,26 +637,78 @@
                 const data = snapshot.val();
                 if (data) {
                     currentTripName = data.name || "Viaje";
+                    currentTripAdmin = data.admin || (data.friends && data.friends[0]) || "Admin";
                     friends = data.friends || [];
                     expenses = data.expenses || [];
                 } else {
                     currentTripName = currentTripId.replace(/-/g, ' ');
+                    currentTripAdmin = "Edwin";
                     friends = ["Edwin"];
                     expenses = [];
                     pushToCloud();
                 }
+
                 document.getElementById('tripNameText').textContent = currentTripName;
+                document.getElementById('tripAdminBadge').textContent = `👑 ${currentTripAdmin}`;
+                
                 saveTripToRegistry(currentTripId, currentTripName);
+
+                // REVISIÓN DE IDENTIDAD (MODAL ONBOARDING INVITADO)
+                checkUserIdentity();
+
                 renderAll();
             });
         }
     });
+
+    // ONBOARDING: PREGUNTAR NOMBRE AL INVITADO
+    function checkUserIdentity() {
+        currentMyUser = localStorage.getItem('tp_user_' + currentTripId) || "";
+
+        if (currentMyUser) {
+            document.getElementById('tripMyNameBadge').textContent = currentMyUser;
+            // Si ya tiene identidad pero no está en la lista de amigos en la nube, agregarlo
+            if (!friends.includes(currentMyUser)) {
+                friends.push(currentMyUser);
+                pushToCloud();
+            }
+            document.getElementById('joinModal').classList.add('hidden');
+        } else {
+            // No tiene nombre registrado en este celular para este viaje -> Mostrar Modal
+            document.getElementById('joinModalTripName').textContent = `"${currentTripName}"`;
+            document.getElementById('joinModal').classList.remove('hidden');
+        }
+    }
+
+    function confirmJoinUser() {
+        const input = document.getElementById('joinUserNameInput');
+        const name = input.value.trim();
+
+        if (!name) {
+            alert("Por favor escribe tu nombre para unirte al viaje.");
+            return;
+        }
+
+        currentMyUser = name;
+        localStorage.setItem('tp_user_' + currentTripId, name);
+        document.getElementById('tripMyNameBadge').textContent = name;
+
+        if (!friends.includes(name)) {
+            friends.push(name);
+            pushToCloud();
+        }
+
+        document.getElementById('joinModal').classList.add('hidden');
+        showToast(`¡Bienvenido(a) a ${currentTripName}, ${name}! 🎉`);
+        renderAll();
+    }
 
     // 4. FUNCIONES EN LA NUBE
     function pushToCloud() {
         if (!tripRef) return;
         tripRef.set({
             name: currentTripName,
+            admin: currentTripAdmin,
             friends: friends,
             expenses: expenses,
             updatedAt: Date.now()
@@ -649,6 +735,10 @@
     }
 
     function promptRenameTrip() {
+        if (currentMyUser && currentTripAdmin && currentMyUser !== currentTripAdmin) {
+            alert(`Solo el administrador (${currentTripAdmin}) puede cambiar el nombre del viaje.`);
+            return;
+        }
         const newName = prompt("Nombre para este viaje:", currentTripName);
         if (newName && newName.trim()) {
             currentTripName = newName.trim();
@@ -657,7 +747,7 @@
         }
     }
 
-    // GESTIÓN DE AMIGOS
+    // GESTIÓN DE AMIGOS CON PROTECCIÓN DE ADMIN
     function addFriend() {
         const input = document.getElementById('friendName');
         const name = input.value.trim();
@@ -674,44 +764,91 @@
     }
 
     function removeFriend(name) {
+        // Regla 1: Nadie puede eliminar al Admin
+        if (name === currentTripAdmin) {
+            alert(`No es posible eliminar a ${name} porque es el Administrador / Creador del viaje 👑.`);
+            return;
+        }
+
+        // Regla 2: Solo el Admin puede eliminar a otros, o el mismo usuario puede salirse
+        const isMe = (name === currentMyUser);
+        const amIAdmin = (currentMyUser === currentTripAdmin);
+
+        if (!isMe && !amIAdmin) {
+            alert(`Solo ${currentTripAdmin} (Admin) puede eliminar a otros participantes.`);
+            return;
+        }
+
         const hasExpenses = expenses.some(e => e.payer === name || (e.splitWith && e.splitWith.includes(name)));
         if (hasExpenses) {
-            if (!confirm(`${name} tiene gastos registrados en este viaje. ¿Seguro que deseas eliminarlo?`)) return;
+            if (!confirm(`${name} tiene gastos registrados en este viaje. ¿Seguro que deseas eliminarlo? Sus cuentas podrían desbalancearse.`)) return;
         }
+
         friends = friends.filter(f => f !== name);
+        if (isMe) {
+            localStorage.removeItem('tp_user_' + currentTripId);
+        }
         pushToCloud();
     }
 
     function updateFriendUI() {
         const container = document.getElementById('friendsListContainer');
+        const amIAdmin = (currentMyUser === currentTripAdmin);
+
         if (friends.length === 0) {
             container.innerHTML = '<span class="text-xs text-slate-400 italic">No has añadido amigos todavía</span>';
         } else {
-            container.innerHTML = friends.map(f => `
-                <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 shadow-2xs">
-                    ${f}
-                    <button onclick="removeFriend('${f}')" class="text-slate-400 hover:text-rose-600 transition" title="Eliminar">
-                        &times;
-                    </button>
-                </span>
-            `).join('');
+            container.innerHTML = friends.map(f => {
+                const isAdmin = (f === currentTripAdmin);
+                const isMe = (f === currentMyUser);
+
+                let badgeHtml = '';
+                if (isAdmin) {
+                    badgeHtml = `<span class="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-md font-extrabold flex items-center gap-0.5">👑 Admin</span>`;
+                } else if (isMe) {
+                    badgeHtml = `<span class="text-[10px] bg-brand-100 text-brand-800 px-1.5 py-0.5 rounded-md font-bold">Tú</span>`;
+                }
+
+                // El botón de eliminar SOLO se muestra si NO es el Admin Y (soy el admin O soy yo mismo)
+                let deleteButtonHtml = '';
+                if (!isAdmin && (amIAdmin || isMe)) {
+                    deleteButtonHtml = `
+                        <button onclick="removeFriend('${f}')" class="text-slate-400 hover:text-rose-600 transition ml-1" title="Eliminar">
+                            &times;
+                        </button>
+                    `;
+                }
+
+                const borderStyle = isAdmin ? 'border-amber-300 bg-amber-50/50' : (isMe ? 'border-brand-300 bg-brand-50/30' : 'border-slate-200 bg-white');
+
+                return `
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 ${borderStyle} border rounded-xl text-xs font-bold text-slate-700 shadow-2xs">
+                        <span>${f}</span>
+                        ${badgeHtml}
+                        ${deleteButtonHtml}
+                    </span>
+                `;
+            }).join('');
         }
 
+        // Selector de pagador (pre-seleccionar a mí mismo por defecto si es posible)
         const select = document.getElementById('payerSelect');
-        const currentPayer = select.value;
+        const currentPayer = select.value || currentMyUser;
         select.innerHTML = '<option value="">¿Quién pagó?</option>';
         friends.forEach(f => {
             const opt = document.createElement('option');
-            opt.value = f; opt.textContent = f;
+            opt.value = f; 
+            opt.textContent = (f === currentMyUser) ? `${f} (Tú)` : (f === currentTripAdmin ? `👑 ${f} (Admin)` : f);
             if (f === currentPayer) opt.selected = true;
             select.appendChild(opt);
         });
 
+        // Checklist de beneficiarios
         const checklist = document.getElementById('beneficiariesChecklist');
         checklist.innerHTML = "";
         friends.forEach(f => {
             const label = document.createElement('label');
-            label.className = "inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-brand-500 transition";
+            label.className = "inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-brand-500 transition text-xs";
             label.innerHTML = `
                 <input type="checkbox" name="beneficiary" value="${f}" checked class="rounded text-brand-600 focus:ring-0">
                 <span class="font-medium text-slate-700">${f}</span>
@@ -759,10 +896,12 @@
 
         pushToCloud();
 
-        // Limpiar formulario
+        // Limpiar formulario y dejar seleccionado al usuario actual
         document.getElementById('amountInput').value = "";
         document.getElementById('descInput').value = "";
-        document.getElementById('payerSelect').value = "";
+        if (currentMyUser && friends.includes(currentMyUser)) {
+            document.getElementById('payerSelect').value = currentMyUser;
+        }
     }
 
     function deleteExpense(id) {
@@ -771,6 +910,10 @@
     }
 
     function clearTripData() {
+        if (currentMyUser && currentTripAdmin && currentMyUser !== currentTripAdmin) {
+            alert(`Solo ${currentTripAdmin} (Admin) puede vaciar los datos de este viaje.`);
+            return;
+        }
         if (confirm(`¿Estás seguro de que deseas vaciar todos los gastos de "${currentTripName}"? Esta acción no se puede deshacer.`)) {
             expenses = [];
             pushToCloud();
@@ -819,7 +962,7 @@
             const colorClass = isPos ? 'text-emerald-600 bg-emerald-50' : (isNeg ? 'text-rose-600 bg-rose-50' : 'text-slate-500 bg-slate-50');
             const sign = isPos ? '+' : '';
             return `
-                <div class="flex items-center justify-between p-2 rounded-lg ${colorClass} font-medium">
+                <div class="flex items-center justify-between p-2 rounded-lg ${colorClass} font-medium text-xs">
                     <span>${f}</span>
                     <span class="font-bold">${sign}$${bal.toFixed(2)}</span>
                 </div>

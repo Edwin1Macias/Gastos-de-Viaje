@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TravelPay Pro - Control de Gastos</title>
+    
+    <!-- Meta tags para convertir en App Móvil (iOS / Android) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="TravelPay Pro">
+    <meta name="theme-color" content="#0284c7">
+    <meta name="application-name" content="TravelPay Pro">
+
+    <!-- Íconos para Acceso Directo y Favicon -->
+    <link id="appFavicon" rel="icon" type="image/png" href="">
+    <link id="appleTouchIcon" rel="apple-touch-icon" href="">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                            800: '#0c4a6e',
+                            900: '#082f49'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(10px);
+        }
+        ::-webkit-scrollbar { height: 6px; width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen py-3 sm:py-8 px-2 sm:px-4">
+
+<div class="max-w-4xl mx-auto space-y-5">
+
+    <!-- HEADER & STATS -->
+    <header class="glass-card rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-brand-700 to-emerald-500 text-white flex items-center justify-center shadow-md shadow-brand-500/20">
+                    <i data-lucide="plane" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-1.5 text-brand-700 font-extrabold text-2xl tracking-tight">
+                        <span>TravelPay <span class="text-emerald-500 font-black">Pro</span></span>
+                    </div>
+                    <p class="text-xs text-slate-500 font-medium">División inteligente de cuentas y gastos de viaje</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button onclick="exportToCSV()" class="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                    <i data-lucide="download" class="w-4 h-4"></i> CSV
+                </button>
+                <button onclick="copyWhatsAppSummary()" class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition">
+                    <i data-lucide="share-2" class="w-4 h-4"></i> Resumen WhatsApp
+                </button>
+            </div>
+        </div>
+
+        <!-- KPI CARDS -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 pt-5">
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Gastado</span>
+                <p id="kpiTotal" class="text-lg sm:text-xl font-black text-slate-900 mt-0.5">$0.00</p>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Amigos en Grupo</span>
+                <p id="kpiFriends" class="text-lg sm:text-xl font-black text-brand-600 mt-0.5">0</p>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Gasto Promedio</span>
+                <p id="kpiAvg" class="text-lg sm:text-xl font-black text-emerald-600 mt-0.5">$0.00</p>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Transacciones</span>
+                <p id="kpiCount" class="text-lg sm:text-xl font-black text-slate-700 mt-0.5">0</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN GRID: AMIGOS & NUEVO GASTO -->
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
+
+        <!-- PANEL IZQUIERDO: INTEGRANTES -->
+        <div class="md:col-span-5 glass-card rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
+            <div class="flex items-center gap-2 text-slate-900 font-bold text-base">
+                <i data-lucide="users" class="w-5 h-5 text-brand-600"></i>
+                <span>1. Amigos en el Viaje</span>
+            </div>
+
+            <div class="flex gap-2">
+                <input type="text" id="friendName" placeholder="Nombre (ej. Sofía)" 
+                       class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium">
+                <button onclick="addFriend()" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-sm transition">
+                    + Añadir
+                </button>
+            </div>
+
+            <div class="space-y-2">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Lista del Grupo</span>
+                <div id="friendsListContainer" class="flex flex-wrap gap-2 min-h-[40px] p-2 bg-slate-50 rounded-xl border border-slate-100">
+                    <span class="text-xs text-slate-400 italic">No has añadido amigos todavía</span>
+                </div>
+            </div>
+
+            <!-- RESUMEN DE BALANCES PERSONALES -->
+            <div class="pt-3 border-t border-slate-100">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Estado de Cuentas</span>
+                <div id="balancesList" class="mt-2 space-y-2 text-sm"></div>
+            </div>
+        </div>
+
+        <!-- PANEL DERECHO: REGISTRO DE GASTO -->
+        <div class="md:col-span-7 glass-card rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
+            <div class="flex items-center gap-2 text-slate-900 font-bold text-base">
+                <i data-lucide="receipt" class="w-5 h-5 text-emerald-600"></i>
+                <span>2. Registrar Nuevo Gasto</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Fecha</label>
+                    <input type="date" id="expenseDate" 
+                           class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">¿Quién Pagó?</label>
+                    <select id="payerSelect" 
+                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium">
+                        <option value="">Selecciona amigo...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Monto (MXN)</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-2 text-slate-400 font-bold">$</span>
+                        <input type="number" id="amountInput" step="0.5" placeholder="0.00" 
+                               class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-bold">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Categoría</label>
+                    <select id="categorySelect" 
+                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium">
+                        <option value="Comida">🍔 Comida / Restaurante</option>
+                        <option value="Hospedaje">🏨 Hospedaje / Cabaña</option>
+                        <option value="Transporte">🚗 Transporte / Gas / Uber</option>
+                        <option value="Bebidas">🍻 Bebidas / Salidas</option>
+                        <option value="Super">🛒 Súper / Despensa</option>
+                        <option value="Otro">🎯 Entretenimiento / Otro</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Concepto / Descripción</label>
+                <input type="text" id="descInput" placeholder="Ej. Cena de mariscos, Caseta..." 
+                       class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium">
+            </div>
+
+            <!-- SELECCIÓN DE PARTICIPANTES EN EL GASTO -->
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">¿Entre quiénes se divide?</span>
+                    <button type="button" onclick="toggleAllBeneficiaries()" class="text-xs font-bold text-brand-600 hover:underline">
+                        Marcar / Desmarcar todos
+                    </button>
+                </div>
+                <div id="beneficiariesChecklist" class="flex flex-wrap gap-2 text-xs"></div>
+            </div>
+
+            <button onclick="addExpense()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm shadow-sm transition flex items-center justify-center gap-2">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i> Guardar Gasto
+            </button>
+        </div>
+    </div>
+
+    <!-- SECCIÓN: LIQUIDACIÓN FINAL INTELIGENTE -->
+    <div class="glass-card rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center">
+                    <i data-lucide="arrow-left-right" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h2 class="text-base font-bold text-slate-900">3. Liquidación Simplificada (Saldar Cuentas)</h2>
+                    <p class="text-xs text-slate-500">Mínimo de transferencias para liquidar todas las deudas.</p>
+                </div>
+            </div>
+            <span id="settlementStatusBadge" class="px-2.5 py-1 text-xs font-bold rounded-full bg-slate-100 text-slate-600">Al día</span>
+        </div>
+
+        <div id="settlementResults" class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2"></div>
+    </div>
+
+    <!-- SECCIÓN: GRÁFICAS -->
+    <div class="grid grid-cols-1 sm:grid-cols-12 gap-5">
+        <div class="sm:col-span-6 glass-card rounded-2xl p-5 shadow-sm border border-slate-200">
+            <h3 class="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                <i data-lucide="pie-chart" class="w-4 h-4 text-brand-600"></i> Gastos por Categoría
+            </h3>
+            <div class="relative h-48 w-full flex items-center justify-center">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+        <div class="sm:col-span-6 glass-card rounded-2xl p-5 shadow-sm border border-slate-200">
+            <h3 class="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                <i data-lucide="bar-chart-2" class="w-4 h-4 text-emerald-600"></i> ¿Quién ha puesto más dinero?
+            </h3>
+            <div class="relative h-48 w-full flex items-center justify-center">
+                <canvas id="payersChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN: HISTORIAL DE GASTOS -->
+    <div class="glass-card rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div class="flex items-center gap-2">
+                <i data-lucide="history" class="w-5 h-5 text-slate-700"></i>
+                <h2 class="text-base font-bold text-slate-900">Historial Detallado de Gastos</h2>
+            </div>
+            <span id="historyCountBadge" class="text-xs font-bold text-slate-400">0 gastos</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs sm:text-sm">
+                <thead>
+                    <tr class="text-slate-400 uppercase tracking-wider border-b border-slate-100 font-bold text-[11px]">
+                        <th class="py-2.5 px-3">Fecha</th>
+                        <th class="py-2.5 px-3">Pagó</th>
+                        <th class="py-2.5 px-3">Concepto</th>
+                        <th class="py-2.5 px-3">Categoría</th>
+                        <th class="py-2.5 px-3 text-right">Monto</th>
+                        <th class="py-2.5 px-3 text-center">Entre</th>
+                        <th class="py-2.5 px-3 text-center">Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTable" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- BOTÓN DE BORRAR TODO -->
+    <div class="text-center pt-2">
+        <button onclick="clearData()" class="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition">
+            <i data-lucide="trash-2" class="w-4 h-4"></i> Borrar Todo el Historial del Viaje
+        </button>
+    </div>
+
+    <!-- FOOTER EJECUTIVO CON TU NOMBRE -->
+    <footer class="text-center py-6 border-t border-slate-200/80">
+        <div class="inline-flex items-center gap-2 px-3 py-1 bg-white rounded-full border border-slate-200 shadow-2xs">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <p class="text-xs font-medium text-slate-600">
+                Diseñado por <strong class="text-brand-700 font-bold">Edwin Macías</strong>
+            </p>
+        </div>
+        <p class="text-[11px] text-slate-400 mt-2 font-medium">TravelPay Pro Ultra • Control Inteligente de Finanzas en Grupo</p>
+    </footer>
+
+</div>
+
+<!-- TOAST NOTIFICACIÓN -->
+<div id="toast" class="fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xl transition-opacity duration-300 opacity-0 pointer-events-none flex items-center gap-2 z-50">
+    <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+    <span id="toastMsg">Mensaje copiado</span>
+</div>
+
+<script>
+    // GENERADOR DINÁMICO DE ÍCONO DE APP (PWA / Acceso directo en Celular)
+    (function generateAppIcon() {
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 192;
+            canvas.height = 192;
+            const ctx = canvas.getContext('2d');
+
+            // Fondo con bordes redondeados y gradiente
+            const grad = ctx.createLinearGradient(0, 0, 192, 192);
+            grad.addColorStop(0, '#0369a1');
+            grad.addColorStop(1, '#059669');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.roundRect(0, 0, 192, 192, 42);
+            ctx.fill();
+
+            // Sombra suave interior
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.beginPath();
+            ctx.roundRect(10, 10, 172, 86, 32);
+            ctx.fill();
+
+            // Letra o Símbolo TP (TravelPay)
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 84px system-ui, -apple-system, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('✈️', 96, 75);
+
+            ctx.font = '900 36px system-ui, -apple-system, sans-serif';
+            ctx.fillText('TP PRO', 96, 142);
+
+            const iconUrl = canvas.toDataURL('image/png');
+            document.getElementById('appFavicon').href = iconUrl;
+            document.getElementById('appleTouchIcon').href = iconUrl;
+        } catch (e) {
+            console.warn("Icon generator bypassed:", e);
+        }
+    })();
+
+    // Estado principal en LocalStorage (mantiene tus datos originales intactos)
+    let friends = JSON.parse(localStorage.getItem('tripFriends')) || [];
+    let expenses = JSON.parse(localStorage.getItem('tripExpenses')) || [];
+
+    let categoryChartInstance = null;
+    let payersChartInstance = null;
+
+    window.onload = () => {
+        document.getElementById('expenseDate').valueAsDate = new Date();
+        renderAll();
+        lucide.createIcons();
+    };
+
+    function showToast(text) {
+        const toast = document.getElementById('toast');
+        document.getElementById('toastMsg').textContent = text;
+        toast.classList.remove('opacity-0', 'pointer-events-none');
+        setTimeout(() => {
+            toast.classList.add('opacity-0', 'pointer-events-none');
+        }, 3000);
+    }
+
+    function renderAll() {
+        updateFriendUI();
+        renderHistory();
+        calculateSettlements();
+        renderCharts();
+        lucide.createIcons();
+    }
+
+    // GESTIÓN DE AMIGOS
+    function addFriend() {
+        const input = document.getElementById('friendName');
+        const name = input.value.trim();
+        if (!name) return;
+        if (friends.some(f => f.toLowerCase() === name.toLowerCase())) {
+            showToast("Ese amigo ya está en la lista");
+            return;
+        }
+        friends.push(name);
+        save();
+        input.value = '';
+        renderAll();
+    }
+
+    function removeFriend(index) {
+        const name = friends[index];
+        const hasExpenses = expenses.some(e => e.payer === name || (e.splitWith && e.splitWith.includes(name)));
+        if (hasExpenses) {
+            if (!confirm(`"${name}" tiene gastos registrados. ¿Seguro de eliminarlo? Sus gastos anteriores se conservarán.`)) {
+                return;
+            }
+        }
+        friends.splice(index, 1);
+        save();
+        renderAll();
+    }
+
+    function updateFriendUI() {
+        const container = document.getElementById('friendsListContainer');
+        container.innerHTML = "";
+        if (friends.length === 0) {
+            container.innerHTML = `<span class="text-xs text-slate-400 italic">No has añadido amigos todavía</span>`;
+        } else {
+            friends.forEach((f, idx) => {
+                const tag = document.createElement('div');
+                tag.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 shadow-2xs";
+                tag.innerHTML = `
+                    <span class="w-5 h-5 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] uppercase font-black">${f[0]}</span>
+                    <span>${f}</span>
+                    <button onclick="removeFriend(${idx})" class="text-slate-300 hover:text-rose-500 transition ml-0.5">&times;</button>
+                `;
+                container.appendChild(tag);
+            });
+        }
+
+        const select = document.getElementById('payerSelect');
+        const currentPayer = select.value;
+        select.innerHTML = '<option value="">¿Quién pagó?</option>';
+        friends.forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f;
+            opt.textContent = f;
+            if (f === currentPayer) opt.selected = true;
+            select.appendChild(opt);
+        });
+
+        const checklist = document.getElementById('beneficiariesChecklist');
+        checklist.innerHTML = "";
+        friends.forEach(f => {
+            const label = document.createElement('label');
+            label.className = "inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-brand-500 transition";
+            label.innerHTML = `
+                <input type="checkbox" name="beneficiary" value="${f}" checked class="rounded text-brand-600 focus:ring-0">
+                <span class="font-medium text-slate-700">${f}</span>
+            `;
+            checklist.appendChild(label);
+        });
+
+        document.getElementById('kpiFriends').textContent = friends.length;
+    }
+
+    function toggleAllBeneficiaries() {
+        const checkboxes = document.querySelectorAll('input[name="beneficiary"]');
+        const anyUnchecked = Array.from(checkboxes).some(cb => !cb.checked);
+        checkboxes.forEach(cb => cb.checked = anyUnchecked);
+    }
+
+    // GESTIÓN DE GASTOS
+    function addExpense() {
+        const date = document.getElementById('expenseDate').value;
+        const payer = document.getElementById('payerSelect').value;
+        const amount = parseFloat(document.getElementById('amountInput').value);
+        const desc = document.getElementById('descInput').value.trim() || 'Gasto General';
+        const category = document.getElementById('categorySelect').value;
+        const checkedBeneficiaries = Array.from(document.querySelectorAll('input[name="beneficiary"]:checked')).map(cb => cb.value);
+
+        if (!date || !payer || isNaN(amount) || amount <= 0) {
+            alert("Por favor selecciona quién pagó e ingresa un monto válido.");
+            return;
+        }
+
+        if (checkedBeneficiaries.length === 0) {
+            alert("Debes seleccionar al menos una persona entre quiénes se divide el gasto.");
+            return;
+        }
+
+        expenses.unshift({
+            id: Date.now(),
+            date,
+            payer,
+            amount,
+            desc,
+            category,
+            splitWith: checkedBeneficiaries
+        });
+
+        save();
+        document.getElementById('amountInput').value = '';
+        document.getElementById('descInput').value = '';
+        renderAll();
+        showToast("¡Gasto guardado correctamente!");
+    }
+
+    function deleteExpense(id) {
+        if (confirm("¿Seguro de eliminar este gasto?")) {
+            expenses = expenses.filter(e => e.id !== id);
+            save();
+            renderAll();
+            showToast("Gasto eliminado");
+        }
+    }
+
+    // HISTORIAL Y KPIS
+    function renderHistory() {
+        const tbody = document.getElementById('historyTable');
+        tbody.innerHTML = "";
+
+        let total = 0;
+        expenses.forEach(e => {
+            total += Number(e.amount);
+            const beneficiariesCount = e.splitWith ? e.splitWith.length : friends.length;
+            const row = document.createElement('tr');
+            row.className = "hover:bg-slate-50 transition";
+            row.innerHTML = `
+                <td class="py-3 px-3 text-slate-500 whitespace-nowrap">${e.date}</td>
+                <td class="py-3 px-3 font-bold text-slate-800">${e.payer}</td>
+                <td class="py-3 px-3 font-medium text-slate-700">${e.desc}</td>
+                <td class="py-3 px-3">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-600">${e.category || 'Varios'}</span>
+                </td>
+                <td class="py-3 px-3 font-extrabold text-slate-900 text-right">$${Number(e.amount).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td class="py-3 px-3 text-center">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-brand-50 text-brand-700" title="${(e.splitWith || friends).join(', ')}">
+                        ${beneficiariesCount} pers.
+                    </span>
+                </td>
+                <td class="py-3 px-3 text-center">
+                    <button onclick="deleteExpense(${e.id || 0})" class="p-1 text-slate-300 hover:text-rose-600 transition" title="Eliminar">
+                        <i data-lucide="trash" class="w-4 h-4"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        document.getElementById('kpiTotal').textContent = `$${total.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        document.getElementById('kpiCount').textContent = expenses.length;
+        document.getElementById('historyCountBadge').textContent = `${expenses.length} gastos`;
+        
+        const avg = friends.length > 0 ? (total / friends.length) : 0;
+        document.getElementById('kpiAvg').textContent = `$${avg.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+
+    // LIQUIDACIÓN Y DEUDAS
+    function calculateSettlements() {
+        const results = document.getElementById('settlementResults');
+        const balancesList = document.getElementById('balancesList');
+        results.innerHTML = "";
+        balancesList.innerHTML = "";
+
+        if (friends.length === 0 || expenses.length === 0) {
+            results.innerHTML = `<div class="col-span-2 text-center py-6 text-slate-400 text-xs italic">Añade amigos y gastos para calcular la liquidación.</div>`;
+            return;
+        }
+
+        let balances = {};
+        let totalPaid = {};
+        friends.forEach(f => { balances[f] = 0; totalPaid[f] = 0; });
+
+        expenses.forEach(e => {
+            const splitGroup = (e.splitWith && e.splitWith.length > 0) ? e.splitWith : friends;
+            const validSplit = splitGroup.filter(f => friends.includes(f));
+            if (validSplit.length === 0) return;
+
+            const share = e.amount / validSplit.length;
+            
+            if (balances[e.payer] !== undefined) {
+                totalPaid[e.payer] = (totalPaid[e.payer] || 0) + e.amount;
+                balances[e.payer] += e.amount;
+            }
+
+            validSplit.forEach(beneficiary => {
+                if (balances[beneficiary] !== undefined) {
+                    balances[beneficiary] -= share;
+                }
+            });
+        });
+
+        friends.forEach(f => {
+            const bal = balances[f];
+            const isPositive = bal > 0.05;
+            const isNegative = bal < -0.05;
+            const badgeClass = isPositive ? 'text-emerald-600 font-bold' : (isNegative ? 'text-rose-600 font-bold' : 'text-slate-400 font-medium');
+            const sign = isPositive ? '+' : '';
+            const statusText = isPositive ? 'Recibe' : (isNegative ? 'Debe' : 'Saldado');
+
+            const item = document.createElement('div');
+            item.className = "flex items-center justify-between py-1 border-b border-slate-50";
+            item.innerHTML = `
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full ${isPositive ? 'bg-emerald-500' : (isNegative ? 'bg-rose-500' : 'bg-slate-300')}"></span>
+                    <span class="text-xs font-semibold text-slate-700">${f}</span>
+                </div>
+                <div class="text-right">
+                    <span class="text-xs ${badgeClass}">${sign}$${bal.toFixed(2)}</span>
+                    <span class="text-[10px] text-slate-400 ml-1">(${statusText})</span>
+                </div>
+            `;
+            balancesList.appendChild(item);
+        });
+
+        let creditors = [];
+        let debtors = [];
+        for (let f in balances) {
+            if (balances[f] > 0.05) creditors.push({ name: f, amt: balances[f] });
+            else if (balances[f] < -0.05) debtors.push({ name: f, amt: Math.abs(balances[f]) });
+        }
+
+        creditors.sort((a, b) => b.amt - a.amt);
+        debtors.sort((a, b) => b.amt - a.amt);
+
+        if (debtors.length === 0) {
+            results.innerHTML = `<div class="col-span-2 text-center py-4 text-emerald-600 text-xs font-bold">🎉 ¡Todas las cuentas están 100% saldadas!</div>`;
+            document.getElementById('settlementStatusBadge').className = "px-2.5 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-700";
+            document.getElementById('settlementStatusBadge').textContent = "Saldado";
+            return;
+        }
+
+        document.getElementById('settlementStatusBadge').className = "px-2.5 py-1 text-xs font-bold rounded-full bg-amber-100 text-amber-700";
+        document.getElementById('settlementStatusBadge').textContent = `${debtors.length} pagos pendientes`;
+
+        let i = 0, j = 0;
+        while (i < debtors.length && j < creditors.length) {
+            let debtor = debtors[i];
+            let creditor = creditors[j];
+            let amount = Math.min(debtor.amt, creditor.amt);
+
+            if (amount > 0.05) {
+                const card = document.createElement('div');
+                card.className = "flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl";
+                card.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="font-extrabold text-slate-900 text-sm">${debtor.name}</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4 text-slate-400"></i>
+                        <span class="font-extrabold text-brand-700 text-sm">${creditor.name}</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-sm font-black text-emerald-600">$${amount.toFixed(2)}</span>
+                        <span class="block text-[10px] text-slate-400 uppercase font-semibold">MXN</span>
+                    </div>
+                `;
+                results.appendChild(card);
+            }
+
+            debtor.amt -= amount;
+            creditor.amt -= amount;
+
+            if (debtor.amt <= 0.05) i++;
+            if (creditor.amt <= 0.05) j++;
+        }
+    }
+
+    // GRÁFICAS DE CHART.JS
+    function renderCharts() {
+        const catCtx = document.getElementById('categoryChart').getContext('2d');
+        const payCtx = document.getElementById('payersChart').getContext('2d');
+
+        let catTotals = {};
+        expenses.forEach(e => {
+            const cat = e.category || 'Varios';
+            catTotals[cat] = (catTotals[cat] || 0) + Number(e.amount);
+        });
+
+        let payerTotals = {};
+        friends.forEach(f => payerTotals[f] = 0);
+        expenses.forEach(e => {
+            payerTotals[e.payer] = (payerTotals[e.payer] || 0) + Number(e.amount);
+        });
+
+        if (categoryChartInstance) categoryChartInstance.destroy();
+        categoryChartInstance = new Chart(catCtx, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(catTotals),
+                datasets: [{
+                    data: Object.values(catTotals),
+                    backgroundColor: ['#0284c7', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#64748b']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } }
+            }
+        });
+
+        if (payersChartInstance) payersChartInstance.destroy();
+        payersChartInstance = new Chart(payCtx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(payerTotals),
+                datasets: [{
+                    label: 'Pagado ($)',
+                    data: Object.values(payerTotals),
+                    backgroundColor: '#10b981',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { ticks: { font: { size: 10 } } },
+                    x: { ticks: { font: { size: 10 } } }
+                }
+            }
+        });
+    }
+
+    // EXPORTACIÓN A WHATSAPP
+    function copyWhatsAppSummary() {
+        if (friends.length === 0 || expenses.length === 0) {
+            alert("No hay gastos registrados para compartir.");
+            return;
+        }
+
+        let total = expenses.reduce((acc, e) => acc + Number(e.amount), 0);
+        let msg = `🏖️ *TRAVELPAY PRO - RESUMEN DEL VIAJE*\n\n`;
+        msg += `💰 *Gasto Total:* $${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN\n`;
+        msg += `👥 *Integrantes:* ${friends.join(', ')}\n`;
+        msg += `📊 *Promedio por persona:* $${(total / friends.length).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN\n\n`;
+        msg += `🤝 *LIQUIDACIÓN FINAL (QUIÉN LE PAGA A QUIÉN):*\n`;
+
+        let balances = {};
+        friends.forEach(f => balances[f] = 0);
+        expenses.forEach(e => {
+            const split = (e.splitWith && e.splitWith.length > 0) ? e.splitWith : friends;
+            const valid = split.filter(f => friends.includes(f));
+            if (valid.length === 0) return;
+            const share = e.amount / valid.length;
+            if (balances[e.payer] !== undefined) balances[e.payer] += e.amount;
+            valid.forEach(b => { if (balances[b] !== undefined) balances[b] -= share; });
+        });
+
+        let creditors = [], debtors = [];
+        for (let f in balances) {
+            if (balances[f] > 0.05) creditors.push({ name: f, amt: balances[f] });
+            else if (balances[f] < -0.05) debtors.push({ name: f, amt: Math.abs(balances[f]) });
+        }
+        creditors.sort((a, b) => b.amt - a.amt);
+        debtors.sort((a, b) => b.amt - a.amt);
+
+        let count = 0;
+        let i = 0, j = 0;
+        while (i < debtors.length && j < creditors.length) {
+            let amount = Math.min(debtors[i].amt, creditors[j].amt);
+            if (amount > 0.05) {
+                msg += `• *${debtors[i].name}* le paga a *${creditors[j].name}*: $${amount.toFixed(2)} MXN\n`;
+                count++;
+            }
+            debtors[i].amt -= amount;
+            creditors[j].amt -= amount;
+            if (debtors[i].amt <= 0.05) i++;
+            if (creditors[j].amt <= 0.05) j++;
+        }
+
+        if (count === 0) msg += `🎉 ¡Cuentas totalmente saldadas!\n`;
+
+        navigator.clipboard.writeText(msg).then(() => {
+            showToast("¡Resumen de WhatsApp copiado al portapapeles!");
+        }).catch(() => {
+            prompt("Copia tu resumen manualmente:", msg);
+        });
+    }
+
+    // EXPORTACIÓN A CSV
+    function exportToCSV() {
+        if (expenses.length === 0) {
+            alert("No hay gastos para exportar.");
+            return;
+        }
+        let csv = "Fecha,Pagador,Concepto,Categoria,Monto,DivididoEntre\n";
+        expenses.forEach(e => {
+            const split = (e.splitWith || friends).join(';');
+            csv += `"${e.date}","${e.payer}","${e.desc}","${e.category || ''}",${e.amount},"${split}"\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `TravelPay_Gastos_${new Date().toISOString().slice(0,10)}.csv`;
+        link.click();
+    }
+
+    function save() {
+        localStorage.setItem('tripFriends', JSON.stringify(friends));
+        localStorage.setItem('tripExpenses', JSON.stringify(expenses));
+    }
+
+    function clearData() {
+        if (confirm("⚠️ ¿Estás seguro de borrar todo el viaje y todos los gastos? Esta acción no se puede deshacer.")) {
+            localStorage.removeItem('tripFriends');
+            localStorage.removeItem('tripExpenses');
+            friends = [];
+            expenses = [];
+            renderAll();
+            showToast("Historial borrado");
+        }
+    }
+</script>
+</body>
+</html>
